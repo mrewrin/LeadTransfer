@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: B27b8393!
+      POSTGRES_DB: leadtransfer
+    ports:
+      - "6543:5432"  # Внешний порт изменён на 6543
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    command: ./wait-for-it.sh db:6543 -- python manage.py runserver 0.0.0.0:8090
+
+    volumes:
+      - .:/app
+    ports:
+      - "8090:8090"  # Изменяем внешний порт на 8090
+    depends_on:
+      - db
+
+
+volumes:
+  postgres_data:
