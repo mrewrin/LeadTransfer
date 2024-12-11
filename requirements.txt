@@ -1,2 +1,4 @@
 Django==4.2
 psycopg2-binary
+djangorestframework
+djangorestframework-simplejwt
