@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +38,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_filters",
+    "rest_framework",
     # Custom apps
     "users",  # Пользователи и аутентификация
     "properties",  # Недвижимость
@@ -147,3 +150,21 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # Время жизни access-токена
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Время жизни refresh-токена
+    "ROTATE_REFRESH_TOKENS": True,  # Обновление refresh-токена при каждом запросе
+    "BLACKLIST_AFTER_ROTATION": True,  # Инвалидировать старые refresh-токены
+    "USER_ID_FIELD": "id",  # или любое другое уникальное поле, например email
+    "USER_ID_CLAIM": "user_id",  # Поле в токене, которое будет использоваться для идентификации
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "USER_MANAGER_FIELD": "user_objects",  # Указываем ваш кастомный менеджер
+}
