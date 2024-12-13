@@ -7,6 +7,11 @@ from .views import (
     verify_broker,
     CustomTokenObtainPairView,
     RegisterView,
+    UserProfileView,
+    UserVerificationView,
+    AssignRoleView,
+    AdminOrModeratorView,
+    BrokerOrAmbassadorView,
 )
 
 
@@ -16,4 +21,15 @@ urlpatterns = [
     path("refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("protected/", protected_view, name="protected"),
     path("verify-broker/<int:user_id>/", verify_broker, name="verify_broker"),
+    path("profile/", UserProfileView.as_view(), name="user_profile"),
+    path("profile/verify/", UserVerificationView.as_view(), name="user-verification"),
+    path("assign-role/", AssignRoleView.as_view(), name="assign_role"),
+    path(
+        "admin-or-moderator/", AdminOrModeratorView.as_view(), name="admin-or-moderator"
+    ),
+    path(
+        "broker-or-ambassador/",
+        BrokerOrAmbassadorView.as_view(),
+        name="broker-or-ambassador",
+    ),
 ]

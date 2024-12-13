@@ -1,15 +1,21 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, UserProfile, Role, UserRole, UserVerification
+from .models import User, UserProfile, Role, UserVerification
 
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
+    """
+    Кастомный админ-класс для модели User.
+    """
+
     model = User
     list_display = ("email", "is_staff", "is_active", "is_verified", "created_at")
     list_filter = ("is_staff", "is_active", "is_verified")
     search_fields = ("email",)
     ordering = ("email",)
+
+    # Указание полей для отображения и редактирования
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (
@@ -24,7 +30,7 @@ class CustomUserAdmin(UserAdmin):
                 )
             },
         ),
-        ("Dates", {"fields": ("last_login", "created_at", "updated_at")}),
+        ("Dates", {"fields": ("last_login", "updated_at")}),
     )
     add_fieldsets = (
         (
@@ -43,8 +49,11 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
 
+    # Поля только для чтения
+    readonly_fields = ("created_at", "updated_at")
 
+
+# Регистрация остальных моделей
 admin.site.register(UserProfile)
 admin.site.register(Role)
-admin.site.register(UserRole)
 admin.site.register(UserVerification)

@@ -3,6 +3,17 @@ from django.conf import settings
 
 
 class RealEstateObject(models.Model):
+    """
+    Модель для описания объекта недвижимости.
+
+    Поля:
+        - Основная информация (название, описание, цена, статус, доступность).
+        - Локация (страна, город, район, адрес, координаты).
+        - Характеристики (площадь, количество комнат, состояние и т.д.).
+        - Мультимедиа (ссылки на фото и видео).
+        - Связь с брокером, управляющим объектом.
+    """
+
     # Основная информация
     name = models.CharField(max_length=255)
     description_ru = models.TextField(blank=True, null=True)
@@ -51,11 +62,15 @@ class RealEstateObject(models.Model):
         ],
         default="new",
     )
-    features = models.JSONField(default=dict, blank=True)  # JSON поле для удобств
+    features = models.JSONField(
+        default=dict, blank=True, help_text="Дополнительные характеристики объекта"
+    )
 
     # Мультимедиа
-    photos = models.JSONField(default=list, blank=True)  # Ссылки на фото
-    videos = models.JSONField(default=list, blank=True)  # Ссылки на видео
+    photos = models.JSONField(
+        default=list, blank=True, help_text="Ссылки на фотографии"
+    )
+    videos = models.JSONField(default=list, blank=True, help_text="Ссылки на видео")
 
     # Связь с брокером
     broker = models.ForeignKey(
@@ -72,6 +87,16 @@ class RealEstateObject(models.Model):
 
 
 class ListingPrice(models.Model):
+    """
+    История изменения цен для объектов недвижимости.
+
+    Поля:
+        - listing: Объект недвижимости.
+        - currency: Валюта.
+        - amount: Сумма.
+        - effective_date: Дата вступления цены в силу.
+    """
+
     listing = models.ForeignKey(
         RealEstateObject, on_delete=models.CASCADE, related_name="prices"
     )
@@ -84,6 +109,17 @@ class ListingPrice(models.Model):
 
 
 class Developer(models.Model):
+    """
+    Модель застройщика.
+
+    Поля:
+        - name: Название застройщика.
+        - country: Страна.
+        - city: Город.
+        - contact_info: Контактная информация (JSON).
+        - rating: Рейтинг застройщика.
+    """
+
     name = models.CharField(max_length=255)
     country = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
@@ -95,6 +131,15 @@ class Developer(models.Model):
 
 
 class ListingStatusHistory(models.Model):
+    """
+    История изменения статуса объекта недвижимости.
+
+    Поля:
+        - listing: Объект недвижимости.
+        - status: Новый статус.
+        - changed_at: Дата изменения статуса.
+    """
+
     listing = models.ForeignKey(
         RealEstateObject, on_delete=models.CASCADE, related_name="status_history"
     )
@@ -108,23 +153,31 @@ class ListingStatusHistory(models.Model):
 
 
 class Catalog(models.Model):
-    name = models.CharField(max_length=255)  # Название каталога
-    description = models.TextField(blank=True, null=True)  # Описание
-    is_public = models.BooleanField(default=False)  # Публичность каталога
+    """
+    Модель каталога объектов недвижимости.
+
+    Поля:
+        - name: Название каталога.
+        - description: Описание.
+        - is_public: Флаг публичности.
+        - broker: Брокер, владелец каталога.
+        - tags: Теги для каталога.
+        - SEO-поля: Заголовок, описание, ключевые слова.
+    """
+
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    is_public = models.BooleanField(default=False)
     broker = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="catalogs",
         related_query_name="catalog",
     )
-    tags = models.JSONField(default=list, blank=True)  # Теги для фильтрации
-    seo_meta_title = models.CharField(
-        max_length=255, blank=True, null=True
-    )  # SEO-заголовок
-    seo_meta_description = models.TextField(blank=True, null=True)  # SEO-описание
-    seo_keywords = models.CharField(
-        max_length=255, blank=True, null=True
-    )  # SEO-ключевые слова
+    tags = models.JSONField(default=list, blank=True)
+    seo_meta_title = models.CharField(max_length=255, blank=True, null=True)
+    seo_meta_description = models.TextField(blank=True, null=True)
+    seo_keywords = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -133,16 +186,24 @@ class Catalog(models.Model):
 
 
 class CatalogListing(models.Model):
+    """
+    Связь между каталогом и объектом недвижимости.
+
+    Поля:
+        - catalog: Каталог.
+        - listing: Объект недвижимости.
+        - sort_order: Порядок сортировки в каталоге.
+        - notes: Заметки брокера.
+    """
+
     catalog = models.ForeignKey(
         Catalog, on_delete=models.CASCADE, related_name="listings"
-    )  # Каталог
+    )
     listing = models.ForeignKey(
         RealEstateObject, on_delete=models.CASCADE, related_name="catalogs"
-    )  # Объект недвижимости
-    sort_order = models.PositiveIntegerField(default=0)  # Сортировка объекта в каталоге
-    notes = models.TextField(
-        blank=True, null=True
-    )  # Дополнительные заметки брокера для объекта
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

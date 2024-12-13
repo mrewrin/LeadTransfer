@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_filters",
     "rest_framework",
+    "drf_yasg",
     # Custom apps
     "users",  # Пользователи и аутентификация
     "properties",  # Недвижимость
@@ -155,6 +156,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -164,6 +166,8 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,  # Инвалидировать старые refresh-токены
     "USER_ID_FIELD": "id",  # или любое другое уникальное поле, например email
     "USER_ID_CLAIM": "user_id",  # Поле в токене, которое будет использоваться для идентификации
+    "UPDATE_LAST_LOGIN": False,
+    "TOKEN_CACHE": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "USER_MANAGER_FIELD": "user_objects",  # Указываем ваш кастомный менеджер
