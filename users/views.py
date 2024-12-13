@@ -12,7 +12,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     UserProfileSerializer,
 )
-from .models import User, UserProfile, UserVerification, Role
+from .models import User, UserProfile, UserVerification, Role, RoleAssignmentHistory
 from .permissions import IsAdminOrModerator, IsBrokerOrAmbassador
 
 
@@ -228,6 +228,13 @@ class AssignRoleView(APIView):
             # Назначаем новую роль
             profile.role = role
             profile.save()
+
+            # Логируем изменение роли
+            RoleAssignmentHistory.objects.create(
+                user=profile.user,
+                assigned_by=request.user,
+                role=role,
+            )
 
             return Response(
                 {

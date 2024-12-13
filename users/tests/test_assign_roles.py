@@ -1,8 +1,7 @@
 import pytest
 from rest_framework.reverse import reverse
 from rest_framework import status
-
-# from users.models import User
+from users.models import RoleAssignmentHistory
 
 
 @pytest.mark.django_db
@@ -38,3 +37,23 @@ def test_assign_role_with_invalid_user(authenticated_client, create_roles):
     # Проверяем, что запрос отклонен
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert "UserProfile not found" in response.data["error"]
+
+
+@pytest.mark.django_db
+def test_role_assignment_history(authenticated_client, buyer_user, create_roles):
+    """Тест логирования изменения ролей."""
+    url = reverse("assign_role")
+    payload = {
+        "user_id": buyer_user.id,
+        "role": "broker",
+    }
+
+    response = authenticated_client.post(url, payload)
+
+    assert response.status_code == status.HTTP_200_OK
+
+    # Проверяем, что запись истории создана
+    history = RoleAssignmentHistory.objects.filter(user=buyer_user).first()
+    assert history is not None
+    assert history.role.name == "broker"
+    assert history.assigned_by.email == "admin@example.com"

@@ -107,23 +107,6 @@ class Role(models.Model):
         return self.name
 
 
-# # Связь пользователь-роли
-# class UserRole(models.Model):
-#     """
-#     Связь пользователя с ролями.
-#
-#     Атрибуты:
-#         user (User): Связанный пользователь.
-#         role (Role): Назначенная роль.
-#     """
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     role = models.ForeignKey(Role, on_delete=models.CASCADE)
-#     objects = models.Manager()  # Явное объявление менеджера
-#
-#     def __str__(self):
-#         return f"{self.user.email} - {self.role.name}"
-
-
 class UserProfile(models.Model):
     """
     Профиль пользователя.
@@ -200,3 +183,33 @@ class UserVerification(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.verification_result}"
+
+
+class RoleAssignmentHistory(models.Model):
+    """
+    Логирует изменения ролей пользователей.
+
+    Атрибуты:
+        user (User): Пользователь, роль которого была изменена.
+        assigned_by (User): Пользователь, назначивший новую роль.
+        Может быть NULL, если роль назначена автоматически.
+        role (Role): Назначенная роль.
+        assigned_at (datetime): Дата и время изменения роли.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="role_history"
+    )
+    assigned_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="assigned_roles"
+    )
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return (
+            f"{self.user.email} "
+            f"assigned role {self.role.name} "
+            f"by {self.assigned_by.email if self.assigned_by else 'system'} "
+            f"at {self.assigned_at}"
+        )
