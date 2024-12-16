@@ -65,6 +65,11 @@ class ObjectSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Объект с таким адресом уже существует."
                 )
+
+        if attrs.get("price") is None:
+            raise serializers.ValidationError(
+                {"price": "Цена обязательна для заполнения."}
+            )
         return super().validate(attrs)
 
 
@@ -116,7 +121,9 @@ class CatalogSerializer(serializers.ModelSerializer):
             Catalog: Созданный экземпляр каталога.
         """
         objects_data = validated_data.pop("catalog_objects", [])
-        catalog = Catalog.objects.create(**validated_data)
+        request = self.context.get("request")
+        broker = request.user if request else None
+        catalog = Catalog.objects.create(broker=broker, **validated_data)
         for obj in objects_data:
             CatalogListing.objects.create(catalog=catalog, listing=obj)
         return catalog
@@ -136,6 +143,14 @@ class CatalogSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if objects_data is not None:
-            instance.listings.set(objects_data)
+            # Удаляем старые связи
+            instance.listings.all().delete()
+            # Убедимся, что передаются только ID
+            objects_data = [
+                obj.id if isinstance(obj, RealEstateObject) else obj
+                for obj in objects_data
+            ]
+            for obj_id in objects_data:
+                instance.listings.create(listing_id=obj_id)
         instance.save()
         return instance
