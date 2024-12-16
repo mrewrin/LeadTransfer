@@ -33,3 +33,19 @@ class IsBrokerOrAmbassador(BasePermission):
             and user.profile.role.name
             in ["broker", "ambassador"]  # Сравнение по имени роли
         )
+
+
+class IsAdminOrBroker(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_superuser
+            or request.user.profile.role.name == "broker"
+            or request.user.profile.role.name == "ambassador"
+        )
+
+
+class IsBuyer(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and request.user.profile.role.name == "buyer"
+        )

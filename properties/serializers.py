@@ -24,6 +24,18 @@ class ObjectSerializer(serializers.ModelSerializer):
         model = RealEstateObject
         fields = "__all__"
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if (
+            request
+            and not request.user.is_superuser
+            and attrs.get("broker") != request.user
+        ):
+            raise serializers.ValidationError(
+                "Вы можете управлять только своими объектами."
+            )
+        return super().validate(attrs)
+
 
 class CatalogSerializer(serializers.ModelSerializer):
     """

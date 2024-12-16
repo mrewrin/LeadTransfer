@@ -1,9 +1,12 @@
+from django.core.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import status
 from .models import Catalog, RealEstateObject
 from .serializers import ObjectSerializer, CatalogSerializer
+from users.permissions import IsAdminOrBroker
 
 
 class ObjectListCreateView(ListCreateAPIView):
@@ -32,21 +35,32 @@ class ObjectListCreateView(ListCreateAPIView):
             QuerySet: Отфильтрованный QuerySet объектов недвижимости.
         """
         queryset = super().get_queryset()
-        price_min = self.request.query_params.get("price_min")
-        price_max = self.request.query_params.get("price_max")
+        try:
+            price_min = self.request.query_params.get("price_min")
+            price_max = self.request.query_params.get("price_max")
+            if price_min:
+                queryset = queryset.filter(price__gte=float(price_min))
+            if price_max:
+                queryset = queryset.filter(price__lte=float(price_max))
+        except ValueError:
+            raise ValidationError(
+                "Параметры price_min и price_max должны быть числами."
+            )
+
         status = self.request.query_params.get("status")
         country = self.request.query_params.get("country")
-
-        if price_min:
-            queryset = queryset.filter(price__gte=price_min)
-        if price_max:
-            queryset = queryset.filter(price__lte=price_max)
         if status:
             queryset = queryset.filter(status=status)
         if country:
             queryset = queryset.filter(country__icontains=country)
 
         return queryset
+
+    # Чтение доступно всем аутентифицированным, запись только брокерам и администраторам
+    def get_permissions(self):
+        if self.request.method in ["POST"]:
+            return [IsAdminOrBroker()]
+        return [IsAuthenticatedOrReadOnly()]
 
 
 class ObjectDetailView(RetrieveUpdateDestroyAPIView):
@@ -61,6 +75,26 @@ class ObjectDetailView(RetrieveUpdateDestroyAPIView):
 
     queryset = RealEstateObject.objects.all()
     serializer_class = ObjectSerializer
+
+    # Просмотр доступен всем аутентифицированным,
+    # изменение и удаление только брокерам и администраторам
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAdminOrBroker()]
+        return [IsAuthenticatedOrReadOnly()]
+
+    def perform_destroy(self, instance):
+        if self.request.user != instance.broker and not self.request.user.is_superuser:
+            raise PermissionDenied("Вы можете удалять только свои объекты.")
+        instance.delete()
+
+    def perform_update(self, serializer):
+        if (
+            self.request.user != serializer.instance.broker
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("Вы можете изменять только свои объекты.")
+        serializer.save()
 
 
 class CatalogListCreateView(ListCreateAPIView):
@@ -77,7 +111,6 @@ class CatalogListCreateView(ListCreateAPIView):
 
     queryset = Catalog.objects.all()
     serializer_class = CatalogSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         """
@@ -86,10 +119,16 @@ class CatalogListCreateView(ListCreateAPIView):
         Returns:
             QuerySet: Отфильтрованный QuerySet каталогов.
         """
-        queryset = Catalog.objects.all()
+        queryset = Catalog.objects.select_related("broker")  # Оптимизация SQL-запросов
         owner = self.request.query_params.get("owner")
+
         if owner:
-            queryset = queryset.filter(broker_id=int(owner))
+            try:
+                owner_id = int(owner)
+                queryset = queryset.filter(broker_id=owner_id)
+            except ValueError:
+                raise ValidationError("Параметр 'owner' должен быть числом.")
+
         return queryset
 
     def post(self, request, *args, **kwargs):
@@ -102,13 +141,21 @@ class CatalogListCreateView(ListCreateAPIView):
         Returns:
             Response: Ответ с данными нового каталога или ошибкой.
         """
-        print(f"DEBUG: request.user = {request.user}, type = {type(request.user)}")
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save(broker=self.request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Чтение доступно всем аутентифицированным, запись только брокерам и администраторам
+    def get_permissions(self):
+        if self.request.method in ["POST"]:
+            return [IsAdminOrBroker()]
+        return [IsAuthenticatedOrReadOnly()]
+
+    def perform_create(self, serializer):
+        serializer.save(broker=self.request.user)
 
 
 class CatalogDetailView(RetrieveUpdateDestroyAPIView):
@@ -123,7 +170,6 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
 
     queryset = Catalog.objects.all()
     serializer_class = CatalogSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def put(self, request, *args, **kwargs):
         """
@@ -141,3 +187,23 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Просмотр доступен всем аутентифицированным,
+    # изменение и удаление только брокерам и администраторам
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAdminOrBroker()]
+        return [IsAuthenticatedOrReadOnly()]
+
+    def perform_update(self, serializer):
+        if (
+            self.request.user != serializer.instance.broker
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("Вы можете изменять только свои каталоги.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if self.request.user != instance.broker and not self.request.user.is_superuser:
+            raise PermissionDenied("Вы можете удалять только свои каталоги.")
+        instance.delete()

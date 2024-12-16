@@ -32,6 +32,7 @@ class RealEstateObject(models.Model):
     city = models.CharField(max_length=100)
     district = models.CharField(max_length=100, blank=True, null=True)
     address = models.CharField(max_length=255)
+    complex_name = models.CharField(max_length=255, blank=True, null=True)
     latitude = models.DecimalField(
         max_digits=9, decimal_places=6, blank=True, null=True
     )
@@ -77,6 +78,14 @@ class RealEstateObject(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="real_estate_objects",
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_objects",
+        help_text="Кто назначил брокера на объект",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
