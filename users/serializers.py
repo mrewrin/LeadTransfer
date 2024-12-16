@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from drf_yasg.utils import swagger_serializer_method
 from .models import User, Role, UserProfile
 
 
@@ -10,14 +11,19 @@ class RegisterSerializer(serializers.ModelSerializer):
     Позволяет создать нового пользователя и назначить ему выбранную роль.
     """
 
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, help_text="Пароль пользователя.")
     role = serializers.SlugRelatedField(
-        queryset=Role.objects.all(), slug_field="name"
-    )  # Используем SlugRelatedField для связи с ролями
+        queryset=Role.objects.all(),
+        slug_field="name",
+        help_text="Роль пользователя (например: admin, broker, buyer).",
+    )
 
     class Meta:
         model = User
         fields = ["email", "password", "role"]
+        extra_kwargs = {
+            "email": {"help_text": "Email пользователя."},
+        }
 
     def create(self, validated_data):
         """
@@ -29,19 +35,15 @@ class RegisterSerializer(serializers.ModelSerializer):
         Returns:
             User: Созданный пользователь.
         """
-
-        # Создаем пользователя
         role = validated_data["role"]
         is_staff = role.name in ["admin", "moderator"]
 
         user = User.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
-            is_staff=is_staff,  # Указываем флаг is_staff
+            is_staff=is_staff,
         )
-        # Создаем профиль пользователя и связываем с ролью
         UserProfile.objects.create(user=user, role=role)
-
         return user
 
 
@@ -49,7 +51,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Кастомизированный сериализатор для получения JWT-токенов.
 
-    Добавляет список ролей пользователя в токен.
+    Добавляет роль пользователя в токен.
     """
 
     @classmethod
@@ -61,12 +63,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             user (User): Пользователь, для которого создается токен.
 
         Returns:
-            Token: JWT-токен с дополнительным полем 'roles'.
+            Token: JWT-токен с дополнительным полем 'role'.
         """
         token = super().get_token(user)
-        # Добавляем роль пользователя из UserProfile
         try:
-            profile = user.profile  # Связь OneToOne
+            profile = user.profile
             token["role"] = profile.role.name if profile.role else None
         except UserProfile.DoesNotExist:
             token["role"] = None
@@ -90,7 +91,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     role = serializers.SlugRelatedField(
         queryset=Role.objects.all(),
-        slug_field="name",  # Используем название роли для удобства
+        slug_field="name",
+        help_text="Роль пользователя (например: admin, broker, buyer).",
+    )
+    avatar_url = serializers.URLField(
+        help_text="URL ссылки на аватар пользователя.", required=False
+    )
+    verification_status = serializers.CharField(
+        help_text="Статус верификации профиля пользователя.", read_only=True
     )
 
     class Meta:
@@ -106,3 +114,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "role",
         ]
         read_only_fields = ["verification_status"]
+
+    @swagger_serializer_method(serializer_or_field=serializers.CharField)
+    def get_role(self, obj):
+        """
+        Возвращает роль пользователя в виде строки.
+
+        Args:
+            obj: Экземпляр UserProfile.
+
+        Returns:
+            str: Название роли пользователя.
+        """
+        return obj.role.name if obj.role else None

@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 
 class RealEstateObject(models.Model):
@@ -90,6 +91,20 @@ class RealEstateObject(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Валидация уникальности адреса
+    def clean(self):
+        if not self.complex_name:  # Если поле `complex_name` не указано
+            duplicate = RealEstateObject.objects.filter(
+                country=self.country,
+                city=self.city,
+                district=self.district,
+                address=self.address,
+            ).exclude(
+                id=self.id
+            )  # Исключаем текущий объект при редактировании
+            if duplicate.exists():
+                raise ValidationError("Объект с таким адресом уже существует.")
 
     def __str__(self):
         return self.name
