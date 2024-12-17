@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -209,12 +209,19 @@ class CatalogListCreateView(ListCreateAPIView):
         return super().post(request, *args, **kwargs)
 
     def perform_create(self, serializer):
+        # Привязываем текущего пользователя как владельца каталога
         serializer.save(broker=self.request.user)
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if not self.request.user.is_authenticated:
+            queryset = queryset.filter(is_public=True)
+        return queryset
+
     def get_permissions(self):
-        if self.request.method in ["POST"]:
+        if self.request.method == "POST":
             return [IsAdminOrBroker()]
-        return [IsAuthenticated()]
+        return [AllowAny()]  # GET-запросы доступны всем
 
 
 class CatalogDetailView(RetrieveUpdateDestroyAPIView):
@@ -252,6 +259,18 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
 
+    def get_permissions(self):
+        """
+        Права доступа:
+        - GET: доступ для всех пользователей.
+        - PUT, PATCH, DELETE: доступ только для аутентифицированных и разрешённых пользователей.
+        """
+        if self.request.method == "GET":
+            return (
+                []
+            )  # Разрешить доступ для всех (в том числе неавторизованных пользователей)
+        return [IsAuthenticated(), IsAdminOrBroker()]
+
     def perform_update(self, serializer):
         if (
             self.request.user != serializer.instance.broker
@@ -264,8 +283,3 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
         if self.request.user != instance.broker and not self.request.user.is_superuser:
             raise PermissionDenied("Вы можете удалять только свои каталоги.")
         instance.delete()
-
-    def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
-            return [IsAdminOrBroker()]
-        return [IsAuthenticated()]

@@ -151,8 +151,15 @@ def catalog(broker):
     Фикстура для создания каталога.
     """
     return Catalog.objects.create(
-        name="Test Catalog",
-        description="Sample Description",
+        name="Test Catalog", description="Public catalog", is_public=True, broker=broker
+    )
+
+
+@pytest.fixture
+def public_catalog(broker):
+    return Catalog.objects.create(
+        name="Public Catalog",
+        description="This catalog is public",
         is_public=True,
         broker=broker,
     )

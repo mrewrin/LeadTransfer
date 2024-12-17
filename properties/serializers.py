@@ -141,9 +141,7 @@ class CatalogSerializer(serializers.ModelSerializer):
             Catalog: Созданный экземпляр каталога.
         """
         objects_data = validated_data.pop("catalog_objects", [])
-        request = self.context.get("request")
-        broker = request.user if request else None
-        catalog = Catalog.objects.create(broker=broker, **validated_data)
+        catalog = Catalog.objects.create(**validated_data)
         for obj in objects_data:
             CatalogListing.objects.create(catalog=catalog, listing=obj)
         return catalog
