@@ -143,10 +143,14 @@ class TestRealEstateObjectPermissions:
 
     def test_unauthorized_user_no_access(self, api_client, real_estate_object):
         """
-        Неавторизованный пользователь не имеет доступа к объектам недвижимости.
+        Неавторизованный пользователь имеет доступ только на чтение объектов недвижимости.
         """
         url = reverse("object-detail", args=[real_estate_object.id])
 
-        # GET - должно быть запрещено
+        # GET - должно быть разрешено
         response = api_client.get(url)
-        assert response.status_code == 401  # Теперь всегда 401
+        assert response.status_code == 200  # Обновляем ожидаемый результат на 200
+
+        # PUT/DELETE - должно быть запрещено
+        response = api_client.put(url, {"name": "Unauthorized Update"})
+        assert response.status_code == 401  # PUT должен возвращать 401

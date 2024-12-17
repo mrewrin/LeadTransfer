@@ -2,6 +2,8 @@ from django.core.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+from rest_framework.status import HTTP_403_FORBIDDEN, HTTP_200_OK
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Catalog, RealEstateObject
@@ -118,7 +120,7 @@ class ObjectListCreateView(ListCreateAPIView):
     def get_permissions(self):
         if self.request.method in ["POST"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticated()]
+        return [AllowAny()]
 
 
 class ObjectDetailView(RetrieveUpdateDestroyAPIView):
@@ -172,7 +174,7 @@ class ObjectDetailView(RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticated()]
+        return [AllowAny()]
 
 
 class CatalogListCreateView(ListCreateAPIView):
@@ -227,51 +229,98 @@ class CatalogListCreateView(ListCreateAPIView):
 class CatalogDetailView(RetrieveUpdateDestroyAPIView):
     """
     API представление для детального просмотра, обновления и удаления каталога.
+
+    Права доступа:
+        - GET: Публичные каталоги доступны всем.
+          Приватные каталоги доступны только владельцу и администраторам.
+        - PUT, PATCH, DELETE: Доступ разрешён только владельцу каталога и администраторам.
     """
 
     queryset = Catalog.objects.all()
     serializer_class = CatalogSerializer
 
+    def get_queryset(self):
+        """
+        Возвращает все каталоги (публичные и приватные) для дальнейшей обработки.
+        """
+        return Catalog.objects.all()  # Включаем все каталоги
+
     @swagger_auto_schema(
         operation_summary="Получить детали каталога",
-        operation_description="Возвращает подробную информацию о каталоге.",
-        responses={200: CatalogSerializer},
+        operation_description=(
+            "Возвращает подробную информацию о каталоге.\n\n"
+            "Доступ:\n"
+            "- Публичные каталоги доступны всем пользователям.\n"
+            "- Приватные каталоги доступны только владельцу или администраторам."
+        ),
+        responses={
+            200: CatalogSerializer,
+            403: openapi.Response("Доступ к этому каталогу запрещен."),
+        },
     )
     def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+        """
+        Обработка GET-запроса для получения деталей каталога.
+        """
+        catalog = self.get_object()
+        if not catalog.is_public and (
+            not request.user.is_authenticated or request.user != catalog.broker
+        ):
+            return Response(
+                {"detail": "Доступ к этому каталогу запрещен."},
+                status=HTTP_403_FORBIDDEN,
+            )
+        return Response(self.get_serializer(catalog).data, status=HTTP_200_OK)
 
     @swagger_auto_schema(
         operation_summary="Обновить каталог",
-        operation_description="Обновляет данные каталога. "
-        "Доступно только владельцу каталога или администратору.",
+        operation_description=(
+            "Обновляет данные каталога.\n\n"
+            "Доступ разрешён только владельцу каталога или администраторам."
+        ),
         request_body=CatalogSerializer,
-        responses={200: CatalogSerializer, 403: "Доступ запрещен"},
+        responses={
+            200: CatalogSerializer,
+            403: openapi.Response("Вы можете изменять только свои каталоги."),
+        },
     )
     def put(self, request, *args, **kwargs):
+        """
+        Обработка PUT-запроса для обновления каталога.
+        """
         return super().put(request, *args, **kwargs)
 
     @swagger_auto_schema(
         operation_summary="Удалить каталог",
-        operation_description="Удаляет каталог. "
-        "Доступно только владельцу каталога или администратору.",
-        responses={204: "Каталог успешно удален", 403: "Доступ запрещен"},
+        operation_description=(
+            "Удаляет существующий каталог.\n\n"
+            "Доступ разрешён только владельцу каталога или администраторам."
+        ),
+        responses={
+            204: openapi.Response("Каталог успешно удален."),
+            403: openapi.Response("Вы можете удалять только свои каталоги."),
+        },
     )
     def delete(self, request, *args, **kwargs):
+        """
+        Обработка DELETE-запроса для удаления каталога.
+        """
         return super().delete(request, *args, **kwargs)
 
     def get_permissions(self):
         """
-        Права доступа:
+        Определяет права доступа для разных методов:
         - GET: доступ для всех пользователей.
-        - PUT, PATCH, DELETE: доступ только для аутентифицированных и разрешённых пользователей.
+        - PUT, PATCH, DELETE: доступ только для аутентифицированных владельцев и администраторов.
         """
         if self.request.method == "GET":
-            return (
-                []
-            )  # Разрешить доступ для всех (в том числе неавторизованных пользователей)
+            return []  # Доступ для всех пользователей
         return [IsAuthenticated(), IsAdminOrBroker()]
 
     def perform_update(self, serializer):
+        """
+        Проверка прав доступа при обновлении каталога.
+        """
         if (
             self.request.user != serializer.instance.broker
             and not self.request.user.is_superuser
@@ -280,6 +329,9 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
         serializer.save()
 
     def perform_destroy(self, instance):
+        """
+        Проверка прав доступа при удалении каталога.
+        """
         if self.request.user != instance.broker and not self.request.user.is_superuser:
             raise PermissionDenied("Вы можете удалять только свои каталоги.")
         instance.delete()

@@ -105,10 +105,18 @@ class TestCatalogSerializer:
             "catalog_objects": [real_estate_object.id],
         }
 
+        # Создаем экземпляр сериализатора
         serializer = CatalogSerializer(data=data, context={"request": request})
         assert serializer.is_valid(), serializer.errors
-        instance = serializer.save()
+
+        # Передаем broker вручную, как это делает perform_create
+        instance = serializer.save(broker=broker)
+
+        # Проверки
         assert instance.name == "Test Catalog"
+        assert instance.description == "Catalog Description"
+        assert instance.is_public is True
+        assert instance.broker == broker
         assert instance.listings.count() == 1
         assert instance.listings.first().listing == real_estate_object
 

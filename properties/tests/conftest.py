@@ -181,3 +181,29 @@ def catalog_listing(catalog, real_estate_object):
     Фикстура для создания записи в CatalogListing.
     """
     return CatalogListing.objects.create(catalog=catalog, listing=real_estate_object)
+
+
+@pytest.fixture
+def private_catalog(broker):
+    """
+    Фикстура для создания приватного каталога.
+    """
+    return Catalog.objects.create(
+        name="Private Catalog",
+        description="This catalog is private",
+        is_public=False,
+        broker=broker,
+    )
+
+
+@pytest.fixture
+def another_broker_catalog(another_broker):
+    """
+    Фикстура для создания каталога другого брокера.
+    """
+    return Catalog.objects.create(
+        name="Another Broker's Catalog",
+        description="Catalog owned by another broker",
+        is_public=True,
+        broker=another_broker,
+    )
