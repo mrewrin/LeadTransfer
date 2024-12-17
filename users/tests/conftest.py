@@ -1,5 +1,5 @@
 import pytest
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APIRequestFactory
 from users.models import Role, User, UserProfile
 
 
@@ -100,3 +100,24 @@ def authenticated_client(api_client, admin_user):
     token = response.data["access"]
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return api_client
+
+
+@pytest.fixture
+def create_user_with_role():
+    """
+    Фикстура для создания пользователя с заданной ролью.
+    """
+
+    def _create_user(email, role_name):
+        user = User.objects.create_user(email=email, password="password123")
+        role, _ = Role.objects.get_or_create(name=role_name)
+        UserProfile.objects.create(user=user, role=role)
+        return user
+
+    return _create_user
+
+
+@pytest.fixture
+def request_factory():
+    """Фикстура для фабрики запросов."""
+    return APIRequestFactory()

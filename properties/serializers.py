@@ -16,21 +16,48 @@ class ObjectSerializer(serializers.ModelSerializer):
         - features: JSON-поле для хранения дополнительных характеристик объекта.
     """
 
-    photos = serializers.JSONField(help_text="Список ссылок на фотографии объекта.")
-    videos = serializers.JSONField(help_text="Список ссылок на видео объекта.")
-    features = serializers.JSONField(help_text="Дополнительные характеристики объекта.")
+    photos = serializers.JSONField(required=False, allow_null=True)
+    videos = serializers.JSONField(required=False, allow_null=True)
+    features = serializers.JSONField(required=False, allow_null=True)
+    broker = serializers.PrimaryKeyRelatedField(
+        read_only=True
+    )  # broker теперь read_only
 
     class Meta:
         model = RealEstateObject
         fields = "__all__"
+
+    def create(self, validated_data):
+        """
+        Создание объекта недвижимости с автоматической привязкой текущего пользователя как broker.
+        """
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            validated_data["broker"] = request.user
+        else:
+            raise serializers.ValidationError(
+                {"broker": "Необходимо аутентифицироваться для создания объекта."}
+            )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """
+        Обновление объекта недвижимости с запретом изменения поля broker.
+        """
+        print("Validated Data:", validated_data)  # Логирование
+        if "broker" in validated_data:
+            raise serializers.ValidationError(
+                {"broker": "Изменение брокера запрещено."}
+            )
+        return super().update(instance, validated_data)
 
     def validate(self, attrs):
         """
         Валидация данных объекта недвижимости.
 
         Проверяет:
-            - Право управления объектом (только для брокера).
-            - Уникальность адреса, если поле `complex_name` не указано.
+            - Проверяет уникальность адреса.
+            - Обязательное поле price.
 
         Args:
             attrs (dict): Входные данные для валидации.
@@ -41,36 +68,29 @@ class ObjectSerializer(serializers.ModelSerializer):
         Raises:
             serializers.ValidationError: В случае нарушения условий валидации.
         """
-        request = self.context.get("request")
-        if (
-            request
-            and not request.user.is_superuser
-            and attrs.get("broker") != request.user
-        ):
-            raise serializers.ValidationError(
-                "Вы можете управлять только своими объектами."
-            )
 
         # Проверка уникальности адреса
         if not attrs.get("complex_name"):
             duplicates = RealEstateObject.objects.filter(
-                country=attrs["country"],
-                city=attrs["city"],
+                country=attrs.get("country"),
+                city=attrs.get("city"),
                 district=attrs.get("district"),
-                address=attrs["address"],
+                address=attrs.get("address"),
             )
             if self.instance:
                 duplicates = duplicates.exclude(id=self.instance.id)
             if duplicates.exists():
                 raise serializers.ValidationError(
-                    "Объект с таким адресом уже существует."
+                    {"address": "Объект с таким адресом уже существует."}
                 )
 
+        # Проверка обязательного поля price
         if attrs.get("price") is None:
             raise serializers.ValidationError(
                 {"price": "Цена обязательна для заполнения."}
             )
-        return super().validate(attrs)
+
+        return attrs
 
 
 class CatalogSerializer(serializers.ModelSerializer):

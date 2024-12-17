@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -62,6 +62,36 @@ class ObjectListCreateView(ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 
+    def get_serializer_context(self):
+        """
+        Добавляет текущий запрос в контекст сериализатора.
+        """
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        """
+        Привязывает текущего пользователя как брокера при создании объекта недвижимости.
+        """
+        serializer.save(broker=self.request.user)
+
+    def perform_update(self, serializer):
+        """
+        Проверка прав при обновлении и сохранение данных.
+        """
+        if (
+            self.request.user != serializer.instance.broker
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("Вы можете изменять только свои объекты.")
+
+        # Полное обновление требует все обязательные поля
+        if not self.request.data.get("country") or not self.request.data.get("city"):
+            raise ValidationError("Все обязательные поля должны быть заполнены.")
+
+        serializer.save()
+
     def get_queryset(self):
         queryset = super().get_queryset()
         try:
@@ -88,7 +118,7 @@ class ObjectListCreateView(ListCreateAPIView):
     def get_permissions(self):
         if self.request.method in ["POST"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticatedOrReadOnly()]
+        return [IsAuthenticated()]
 
 
 class ObjectDetailView(RetrieveUpdateDestroyAPIView):
@@ -142,7 +172,7 @@ class ObjectDetailView(RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticatedOrReadOnly()]
+        return [IsAuthenticated()]
 
 
 class CatalogListCreateView(ListCreateAPIView):
@@ -184,7 +214,7 @@ class CatalogListCreateView(ListCreateAPIView):
     def get_permissions(self):
         if self.request.method in ["POST"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticatedOrReadOnly()]
+        return [IsAuthenticated()]
 
 
 class CatalogDetailView(RetrieveUpdateDestroyAPIView):
@@ -238,4 +268,4 @@ class CatalogDetailView(RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAdminOrBroker()]
-        return [IsAuthenticatedOrReadOnly()]
+        return [IsAuthenticated()]

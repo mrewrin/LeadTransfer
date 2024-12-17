@@ -49,26 +49,49 @@ class TestObjectSerializer:
 
     def test_invalid_broker(self, broker, another_broker, mock_request):
         """
-        Проверка ошибки при попытке указать другого брокера.
+        Проверка, что broker автоматически привязывается при создании
+        и не может быть изменён при обновлении.
         """
         request = mock_request(broker)
+
+        # Тест создания объекта – broker должен быть установлен автоматически
         data = {
-            "name": "Invalid Broker Object",
+            "name": "Test Object",
             "price": 100000,
             "country": "Country",
             "city": "City",
             "address": "Test Address",
             "area": 100,
             "rooms": 3,
-            "broker": another_broker.id,
             "photos": ["http://example.com/photo1.jpg"],
             "videos": ["http://example.com/video1.mp4"],
             "features": {"key": "value"},
         }
         serializer = ObjectSerializer(data=data, context={"request": request})
-        with pytest.raises(ValidationError) as excinfo:
-            serializer.is_valid(raise_exception=True)
-        assert "Вы можете управлять только своими объектами" in str(excinfo.value)
+        assert serializer.is_valid(), serializer.errors
+        instance = serializer.save()
+        assert (
+            instance.broker == broker
+        )  # Проверяем, что broker – это текущий пользователь
+
+        # Тест обновления объекта – попытка передать broker не должна его изменить
+        update_data = {
+            "broker": another_broker.id,  # Попытка изменить брокера
+            "name": "Updated Test Object",
+            "price": instance.price,  # Обязательное поле
+            "country": instance.country,
+            "city": instance.city,
+            "address": instance.address,
+            "area": instance.area,
+            "rooms": instance.rooms,
+        }
+        serializer = ObjectSerializer(instance=instance, data=update_data, partial=True)
+        assert serializer.is_valid(), serializer.errors
+        updated_instance = serializer.save()
+
+        # Проверяем, что broker остался прежним
+        assert updated_instance.broker == broker
+        assert updated_instance.name == "Updated Test Object"
 
 
 @pytest.mark.django_db

@@ -1,9 +1,39 @@
 import pytest
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 from unittest.mock import Mock
 from properties.models import RealEstateObject, Catalog, CatalogListing
-from django.contrib.auth import get_user_model
+from users.models import UserProfile, Role
 
 User = get_user_model()
+
+
+@pytest.fixture
+def api_client():
+    """
+    Фикстура для создания API клиента.
+    """
+    return APIClient()
+
+
+@pytest.fixture
+def admin_user():
+    """
+    Фикстура для создания пользователя с правами администратора.
+    """
+    return User.objects.create_superuser(email="admin@test.com", password="password123")
+
+
+@pytest.fixture
+def buyer():
+    """
+    Фикстура для создания пользователя с ролью покупателя.
+    """
+    user = User.objects.create_user(email="buyer@test.com", password="password123")
+    UserProfile.objects.create(
+        user=user, role=Role.objects.get_or_create(name="buyer")[0]
+    )
+    return user
 
 
 @pytest.fixture
@@ -11,7 +41,10 @@ def broker():
     """
     Фикстура для создания пользователя с ролью брокера.
     """
-    return User.objects.create_user(email="broker@test.com", password="password123")
+    user = User.objects.create_user(email="broker@test.com", password="password123")
+    role, _ = Role.objects.get_or_create(name="broker")  # Создаем роль, если её еще нет
+    UserProfile.objects.create(user=user, role=role)  # Привязываем роль к пользователю
+    return user
 
 
 @pytest.fixture
@@ -19,9 +52,12 @@ def another_broker():
     """
     Фикстура для создания другого пользователя с ролью брокера.
     """
-    return User.objects.create_user(
+    user = User.objects.create_user(
         email="another_broker@test.com", password="password123"
     )
+    role, _ = Role.objects.get_or_create(name="broker")  # Создаем роль, если её еще нет
+    UserProfile.objects.create(user=user, role=role)  # Привязываем роль к пользователю
+    return user
 
 
 @pytest.fixture
