@@ -1,4 +1,6 @@
 from django.core.exceptions import ValidationError
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
@@ -8,6 +10,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Catalog, RealEstateObject
 from .serializers import ObjectSerializer, CatalogSerializer
+from .filters import RealEstateObjectFilter
 from users.permissions import IsAdminOrBroker
 
 
@@ -18,6 +21,10 @@ class ObjectListCreateView(ListCreateAPIView):
 
     queryset = RealEstateObject.objects.all()
     serializer_class = ObjectSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = RealEstateObjectFilter
+    ordering_fields = ["price", "created_at"]
+    ordering = ["-created_at"]
 
     @swagger_auto_schema(
         operation_summary="Получить список объектов недвижимости",
@@ -94,28 +101,28 @@ class ObjectListCreateView(ListCreateAPIView):
 
         serializer.save()
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        try:
-            price_min = self.request.query_params.get("price_min")
-            price_max = self.request.query_params.get("price_max")
-            if price_min:
-                queryset = queryset.filter(price__gte=float(price_min))
-            if price_max:
-                queryset = queryset.filter(price__lte=float(price_max))
-        except ValueError:
-            raise ValidationError(
-                "Параметры price_min и price_max должны быть числами."
-            )
-
-        status = self.request.query_params.get("status")
-        country = self.request.query_params.get("country")
-        if status:
-            queryset = queryset.filter(status=status)
-        if country:
-            queryset = queryset.filter(country__icontains=country)
-
-        return queryset
+    # def get_queryset(self):
+    #     queryset = super().get_queryset()
+    #     try:
+    #         price_min = self.request.query_params.get("price_min")
+    #         price_max = self.request.query_params.get("price_max")
+    #         if price_min:
+    #             queryset = queryset.filter(price__gte=float(price_min))
+    #         if price_max:
+    #             queryset = queryset.filter(price__lte=float(price_max))
+    #     except ValueError:
+    #         raise ValidationError(
+    #             "Параметры price_min и price_max должны быть числами."
+    #         )
+    #
+    #     status = self.request.query_params.get("status")
+    #     country = self.request.query_params.get("country")
+    #     if status:
+    #         queryset = queryset.filter(status=status)
+    #     if country:
+    #         queryset = queryset.filter(country__icontains=country)
+    #
+    #     return queryset
 
     def get_permissions(self):
         if self.request.method in ["POST"]:
