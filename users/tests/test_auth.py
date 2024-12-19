@@ -138,3 +138,61 @@ def test_expired_access_token(api_client, admin_user, settings):
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert "detail" in response.data, f"Response data: {response.data}"
     # assert "token_not_valid" in response.data["detail"]
+
+
+@pytest.mark.django_db
+def test_change_password_with_valid_data(api_client, admin_user):
+    """
+    Тест успешной смены пароля с корректными данными.
+    """
+    login_url = reverse("token_obtain_pair")
+    change_password_url = reverse("change_password")
+
+    # Авторизация
+    payload = {"email": "admin@example.com", "password": "Admin123!"}
+    response = api_client.post(login_url, payload)
+    access_token = response.data["access"]
+
+    # Смена пароля
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+    response = api_client.post(
+        change_password_url,
+        {"old_password": "Admin123!", "new_password": "NewPassword123!"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "Password changed successfully!" in response.data["message"]
+
+    # Проверяем, что старый пароль больше не работает
+    response = api_client.post(login_url, payload)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Новый пароль работает
+    response = api_client.post(
+        login_url, {"email": "admin@example.com", "password": "NewPassword123!"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_change_password_with_invalid_old_password(api_client, admin_user):
+    """
+    Тест смены пароля с неправильным старым паролем.
+    """
+    login_url = reverse("token_obtain_pair")
+    change_password_url = reverse("change_password")
+
+    # Авторизация
+    payload = {"email": "admin@example.com", "password": "Admin123!"}
+    response = api_client.post(login_url, payload)
+    access_token = response.data["access"]
+
+    # Смена пароля
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+    response = api_client.post(
+        change_password_url,
+        {"old_password": "WrongOldPassword!", "new_password": "NewPassword123!"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "The old password is incorrect." in response.data["error"]

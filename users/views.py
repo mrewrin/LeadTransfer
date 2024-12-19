@@ -274,3 +274,56 @@ class BrokerOrAmbassadorView(APIView):
     )
     def get(self, request):
         return Response({"message": "Welcome, Broker or Ambassador!"})
+
+
+class ChangePasswordView(APIView):
+    """
+    Эндпоинт для смены пароля аутентифицированным пользователем.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Смена пароля",
+        operation_description="Позволяет аутентифицированному пользователю сменить пароль.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "old_password": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Старый пароль"
+                ),
+                "new_password": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Новый пароль"
+                ),
+            },
+            required=["old_password", "new_password"],
+        ),
+        responses={
+            200: "Пароль успешно изменён",
+            400: "Ошибка валидации",
+            401: "Неавторизован",
+        },
+    )
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response(
+                {"error": "Both old_password and new_password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.check_password(old_password):
+            return Response(
+                {"error": "The old password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Password changed successfully!"}, status=status.HTTP_200_OK
+        )
