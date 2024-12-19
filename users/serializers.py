@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from drf_yasg.utils import swagger_serializer_method
 from .models import User, Role, UserProfile
 
 
@@ -84,7 +83,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         phone (str): Номер телефона пользователя.
         country (str): Страна проживания пользователя.
         city (str): Город проживания пользователя.
-        avatar_url (str): Ссылка на аватар пользователя.
+        avatar (ImageField): Поле для загрузки аватара пользователя.
         verification_status (str): Текущий статус верификации профиля.
         role (str): Роль пользователя в системе.
     """
@@ -94,9 +93,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         slug_field="name",
         help_text="Роль пользователя (например: admin, broker, buyer).",
     )
-    avatar_url = serializers.URLField(
-        help_text="URL ссылки на аватар пользователя.", required=False
-    )
+    # avatar = serializers.ImageField(
+    #     help_text="Загрузка аватара пользователя.", required=False, allow_null=True
+    # )
     verification_status = serializers.CharField(
         help_text="Статус верификации профиля пользователя.", read_only=True
     )
@@ -109,21 +108,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "phone",
             "country",
             "city",
-            "avatar_url",
+            # "avatar",
             "verification_status",
             "role",
         ]
         read_only_fields = ["verification_status"]
 
-    @swagger_serializer_method(serializer_or_field=serializers.CharField)
-    def get_role(self, obj):
-        """
-        Возвращает роль пользователя в виде строки.
-
-        Args:
-            obj: Экземпляр UserProfile.
-
-        Returns:
-            str: Название роли пользователя.
-        """
-        return obj.role.name if obj.role else None
+    # @swagger_serializer_method(serializer_or_field=serializers.CharField)
+    # def get_role(self, obj):
+    #     """
+    #     Возвращает роль пользователя в виде строки.
+    #
+    #     Args:
+    #         obj: Экземпляр UserProfile.
+    #
+    #     Returns:
+    #         str: Название роли пользователя.
+    #     """
+    #     return obj.role.name if obj.role else None

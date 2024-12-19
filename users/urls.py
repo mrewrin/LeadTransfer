@@ -13,6 +13,7 @@ from .views import (
     AdminOrModeratorView,
     BrokerOrAmbassadorView,
     ChangePasswordView,
+    UserAvatarUploadView,
 )
 
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path("verify-broker/<int:user_id>/", verify_broker, name="verify_broker"),
     path("profile/", UserProfileView.as_view(), name="user_profile"),
     path("profile/verify/", UserVerificationView.as_view(), name="user-verification"),
+    path("profile/avatar/", UserAvatarUploadView.as_view(), name="user_avatar_upload"),
     path("assign-role/", AssignRoleView.as_view(), name="assign_role"),
     path(
         "admin-or-moderator/", AdminOrModeratorView.as_view(), name="admin-or-moderator"

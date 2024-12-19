@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "django_filters",
     "rest_framework",
     "drf_yasg",
+    "notifications",
     # Custom apps
     "users",  # Пользователи и аутентификация
     "properties",  # Недвижимость

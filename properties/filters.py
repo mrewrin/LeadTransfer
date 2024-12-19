@@ -12,12 +12,12 @@ class RealEstateObjectFilter(django_filters.FilterSet):
     country = django_filters.CharFilter(field_name="country", lookup_expr="iexact")
     city = django_filters.CharFilter(field_name="city", lookup_expr="iexact")
     status = django_filters.CharFilter(field_name="status", lookup_expr="iexact")
-    ordering = django_filters.OrderingFilter(
-        fields=[
-            ("price", "price"),
-            ("created_at", "created_at"),
-        ]
-    )
+    # ordering = django_filters.OrderingFilter(
+    #     fields=[
+    #         ("price", "price"),
+    #         ("created_at", "created_at"),
+    #     ]
+    # )
 
     class Meta:
         model = RealEstateObject

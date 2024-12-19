@@ -118,7 +118,7 @@ class UserProfile(models.Model):
         phone (str): Номер телефона.
         country (str): Страна проживания.
         city (str): Город проживания.
-        avatar_url (str): Ссылка на аватар пользователя.
+        avatar (ImageField): загрузка аватара пользователя.
         verification_status (str): Статус верификации профиля.
         role (str): Роль пользователя в системе.
     """
@@ -129,7 +129,9 @@ class UserProfile(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
-    avatar_url = models.URLField(blank=True, null=True)
+    avatar = models.ImageField(
+        upload_to="avatars/", blank=True, null=True
+    )  # Новое поле
     verification_status = models.CharField(
         max_length=20,
         choices=[

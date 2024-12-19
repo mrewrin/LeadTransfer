@@ -1,8 +1,12 @@
+from PIL import Image, UnidentifiedImageError
+from io import BytesIO
+from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -105,6 +109,10 @@ class UserProfileView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+    ]  # Поддержка обработки multipart-данных
 
     @swagger_auto_schema(
         operation_summary="Получить профиль пользователя",
@@ -129,6 +137,106 @@ class UserProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserAvatarUploadView(APIView):
+    """
+    Эндпоинт для загрузки аватара пользователя с автоматической обрезкой.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_summary="Загрузить аватар",
+        operation_description=(
+            "Позволяет пользователю загрузить новый аватар.\n\n"
+            "Поддерживаемые форматы: JPEG, PNG.\n"
+            "Ограничения:\n"
+            "- Максимальное разрешение: 512x512 пикселей (автоматическая обрезка).\n"
+            "- Максимальный размер файла: 2MB."
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                name="avatar",
+                in_=openapi.IN_FORM,
+                type=openapi.TYPE_FILE,
+                description="Файл изображения аватара (JPEG, PNG).",
+                required=True,
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                "Аватар успешно обновлен.",
+                examples={
+                    "application/json": {
+                        "message": "Аватар успешно обновлен.",
+                        "avatar_url": "/media/avatars/avatar.jpg",
+                    }
+                },
+            ),
+            400: "Ошибка загрузки.",
+            401: "Необходимо авторизоваться.",
+        },
+    )
+    def post(self, request):
+        profile = request.user.profile
+        avatar = request.FILES.get("avatar")
+
+        if not avatar:
+            return Response(
+                {"error": "Файл аватара обязателен."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if avatar.content_type not in ["image/jpeg", "image/png"]:
+            return Response(
+                {"error": "Только JPEG и PNG файлы поддерживаются."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if avatar.size > 2 * 1024 * 1024:
+            return Response(
+                {"error": "Размер файла не должен превышать 2MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Открываем изображение
+            img = Image.open(avatar)
+            max_resolution = (512, 512)
+
+            # Проверяем размеры изображения
+            if img.width > max_resolution[0] or img.height > max_resolution[1]:
+                left = (img.width - max_resolution[0]) / 2
+                top = (img.height - max_resolution[1]) / 2
+                right = (img.width + max_resolution[0]) / 2
+                bottom = (img.height + max_resolution[1]) / 2
+                img = img.crop((left, top, right, bottom))
+                img = img.resize(max_resolution)
+
+            buffer = BytesIO()
+            img.save(buffer, format=img.format)
+            buffer.seek(0)
+
+            file_content = ContentFile(buffer.read(), name=avatar.name)
+            profile.avatar.save(avatar.name, file_content, save=True)
+
+        except UnidentifiedImageError:
+            return Response(
+                {"error": "Файл не является допустимым изображением."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Не удалось обработать изображение: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"message": "Аватар успешно обновлен.", "avatar_url": profile.avatar.url},
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserVerificationView(APIView):
